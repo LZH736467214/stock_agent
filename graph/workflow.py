@@ -2,8 +2,8 @@
 LangGraph工作流定义
 实现"总-分-总"架构的股票分析流程
 """
-from typing import Dict, Any
-from langgraph.graph import StateGraph, END
+from typing import Dict, Any, List
+from langgraph.graph import StateGraph, END, START
 from .state import StockAnalysisState
 from agents import (
     PlannerAgent,
@@ -164,13 +164,15 @@ def create_stock_analysis_graph():
 
 def create_stock_analysis_graph_v2():
     """
-    创建股票分析工作流图 (改进版本)
+    创建股票分析工作流图 (并行版本)
     
-    使用顺序执行确保状态正确传递
+    使用扇出-扇入模式实现四个分析节点并行执行
     
     架构：
-    planner -> fundamental -> technical -> valuation -> news -> summarizer
+    planner -> [fundamental, technical, valuation, news] (并行) -> summarizer
     """
+    from langgraph.constants import Send
+    
     # 创建状态图
     workflow = StateGraph(StockAnalysisState)
     
@@ -185,21 +187,32 @@ def create_stock_analysis_graph_v2():
     # 设置入口节点
     workflow.set_entry_point("planner")
     
-    # 添加条件边：任务规划后判断是否继续
+    # 定义扇出函数：从planner分发到四个并行节点
+    def fan_out_to_analyzers(state: StockAnalysisState) -> List[Send]:
+        """如果有股票代码，则同时发送到四个分析节点"""
+        if state.get('stock_code'):
+            return [
+                Send("fundamental", state),
+                Send("technical", state),
+                Send("valuation", state),
+                Send("news", state),
+            ]
+        return []  # 没有股票代码则不执行分析
+    
+    # planner后使用条件边进行扇出
     workflow.add_conditional_edges(
         "planner",
-        should_continue,
-        {
-            "continue": "fundamental",
-            "end": END
-        }
+        fan_out_to_analyzers,
+        ["fundamental", "technical", "valuation", "news"]
     )
     
-    # 顺序执行各分析节点
-    workflow.add_edge("fundamental", "technical")
-    workflow.add_edge("technical", "valuation")
-    workflow.add_edge("valuation", "news")
+    # 四个分析节点完成后都汇聚到summarizer (扇入)
+    workflow.add_edge("fundamental", "summarizer")
+    workflow.add_edge("technical", "summarizer")
+    workflow.add_edge("valuation", "summarizer")
     workflow.add_edge("news", "summarizer")
+    
+    # summarizer完成后结束
     workflow.add_edge("summarizer", END)
     
     # 编译图
