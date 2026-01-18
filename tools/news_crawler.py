@@ -13,9 +13,9 @@ sys.path.insert(0, str(__file__).rsplit('\\', 2)[0])
 from config import config
 
 
-def _search_baidu_news(query: str, num_results: int = 10) -> List[Dict]:
+def _search_sina_news(query: str, num_results: int = 10) -> List[Dict]:
     """
-    使用百度搜索爬取新闻
+    使用新浪财经搜索爬取新闻（主要数据源）
     
     Args:
         query: 搜索关键词
@@ -25,7 +25,57 @@ def _search_baidu_news(query: str, num_results: int = 10) -> List[Dict]:
         新闻列表
     """
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'zh-CN,zh;q=0.9',
+    }
+    
+    # 新浪财经搜索URL
+    url = f"https://search.sina.com.cn/news?q={quote(query)}"
+    
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.encoding = 'utf-8'
+        soup = BeautifulSoup(response.text, 'lxml')
+        
+        news_list = []
+        # 解析新浪搜索结果
+        results = soup.select('.box-result')[:num_results]
+        
+        for item in results:
+            title_elem = item.select_one('h2 a')
+            content_elem = item.select_one('.content')
+            source_elem = item.select_one('.fgray_time')
+            
+            if title_elem:
+                news = {
+                    'title': title_elem.get_text(strip=True),
+                    'url': title_elem.get('href', ''),
+                    'content': content_elem.get_text(strip=True) if content_elem else '',
+                    'source': source_elem.get_text(strip=True) if source_elem else '新浪财经'
+                }
+                news_list.append(news)
+        
+        return news_list
+    except Exception as e:
+        return []
+
+
+def _search_baidu_news(query: str, num_results: int = 10) -> List[Dict]:
+    """
+    使用百度搜索爬取新闻（备用数据源）
+    
+    Args:
+        query: 搜索关键词
+        num_results: 返回结果数量
+    
+    Returns:
+        新闻列表
+    """
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'zh-CN,zh;q=0.9',
     }
     
     # 百度新闻搜索URL
@@ -56,7 +106,34 @@ def _search_baidu_news(query: str, num_results: int = 10) -> List[Dict]:
         
         return news_list
     except Exception as e:
-        return [{'title': f'新闻获取失败: {str(e)}', 'content': '', 'url': '', 'source': ''}]
+        return []
+
+
+def _search_news(query: str, num_results: int = 10) -> List[Dict]:
+    """
+    多源新闻搜索：优先使用新浪财经，失败时回退到百度
+    
+    Args:
+        query: 搜索关键词
+        num_results: 返回结果数量
+    
+    Returns:
+        新闻列表
+    """
+    # 优先使用新浪财经
+    news_list = _search_sina_news(query, num_results)
+    
+    if news_list:
+        return news_list
+    
+    # 回退到百度新闻
+    news_list = _search_baidu_news(query, num_results)
+    
+    if news_list:
+        return news_list
+    
+    # 都失败时返回错误信息
+    return [{'title': f'新闻获取失败: 所有数据源均不可用', 'content': '', 'url': '', 'source': ''}]
 
 
 def _analyze_news_sentiment_risk(news_list: List[Dict], company_name: str) -> Dict:
@@ -164,8 +241,8 @@ def crawl_news(query: str, num_results: int = 10) -> str:
     Returns:
         str: 包含新闻列表和分析结果的Markdown格式文本
     """
-    # 爬取新闻
-    news_list = _search_baidu_news(query, num_results)
+    # 爬取新闻（优先新浪财经，备用百度）
+    news_list = _search_news(query, num_results)
     
     # 分析情感和风险
     analysis = _analyze_news_sentiment_risk(news_list, query)
