@@ -93,7 +93,30 @@ def _search_stock_by_name(company_name: str) -> Optional[Dict[str, str]]:
             return {'code': code, 'name': company_name, 'market': _get_market(code)}
         return None
     
-    # 尝试从全市场股票中搜索
+    # 方法1: 使用 Akshare 搜索 A 股
+    try:
+        import akshare as ak
+        df = ak.stock_info_a_code_name()
+        # 模糊匹配: 公司名称包含查询词，或查询词包含公司名称
+        matches = df[df['name'].str.contains(company_name, na=False)]
+        if not matches.empty:
+            row = matches.iloc[0]
+            code = row['code']
+            name = row['name']
+            # 转换为 baostock 格式 (sh./sz.)
+            if code.startswith('6'):
+                bs_code = f"sh.{code}"
+            else:
+                bs_code = f"sz.{code}"
+            return {
+                'code': bs_code,
+                'name': name,
+                'market': _get_market(bs_code)
+            }
+    except Exception as e:
+        print(f"    [DEBUG] Akshare搜索失败: {e}")
+    
+    # 方法2: 使用 Baostock 搜索 (备选)
     try:
         with baostock_login_context():
             rs = bs.query_all_stock()
@@ -111,8 +134,8 @@ def _search_stock_by_name(company_name: str) -> Optional[Dict[str, str]]:
                         'name': stock_name,
                         'market': _get_market(stock_code)
                     }
-    except:
-        pass
+    except Exception as e:
+        print(f"    [DEBUG] Baostock搜索失败: {e}")
     
     return None
 
