@@ -1,0 +1,26 @@
+============================================================
+双数据源测试
+============================================================
+
+[TEST] Getting profit data...
+login success!
+  [OK] Success! 1 rows, 11 columns
+  Columns: ['code', 'pubDate', 'statDate', 'roeAvg', 'npMargin']...
+
+[TEST] Getting growth data...
+
+  0%|          | 0/3 [00:00<?, ?it/s]
+ 33%|███▎      | 1/3 [00:01<00:02,  1.17s/it]
+ 67%|██████▋   | 2/3 [00:01<00:00,  1.05it/s]
+100%|██████████| 3/3 [00:02<00:00,  1.12it/s]
+                                             
+  [OK] Success! 4 rows, 86 columns
+  Columns: ['日期', '摊薄每股收益(元)', '加权每股收益(元)', '每股收益_调整后(元)', '扣除非经常性损益后的每股收益(元)']...
+
+[TEST] Getting balance data...
+  [OK] Success! 1 rows, 9 columns
+  Columns: ['code', 'pubDate', 'statDate', 'currentRatio', 'quickRatio']...
+
+============================================================
+测试完成
+============================================================
