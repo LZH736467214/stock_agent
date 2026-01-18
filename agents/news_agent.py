@@ -32,10 +32,7 @@ class NewsAgent(BaseAgent):
         stock_code = state.get('stock_code', '')
         
         if not company_name:
-            return {
-                **state,
-                'news_analysis': '无法进行新闻分析：缺少公司名称'
-            }
+            return {'news_analysis': '无法进行新闻分析：缺少公司名称'}
         
         # 构建输入消息
         prompt = NEWS_PROMPT.format(
@@ -52,12 +49,6 @@ class NewsAgent(BaseAgent):
             ai_message = result['messages'][-1]
             analysis = ai_message.content if hasattr(ai_message, 'content') else str(ai_message)
             
-            return {
-                **state,
-                'news_analysis': analysis
-            }
+            return {'news_analysis': analysis}
         except Exception as e:
-            return {
-                **state,
-                'news_analysis': f'新闻分析失败: {str(e)}'
-            }
+            return {'news_analysis': f'新闻分析失败: {str(e)}'}

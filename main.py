@@ -22,10 +22,34 @@ from graph.workflow import create_stock_analysis_graph_v2
 # 创建CLI应用
 app = typer.Typer(
     name="stock-advisor",
-    help="多Agent股票顾问系统 - 基于LangGraph的智能股票分析"
+    help="多Agent股票顾问系统 - 基于LangGraph的智能股票分析",
+    invoke_without_command=True
 )
 
 console = Console()
+
+
+@app.callback()
+def main(ctx: typer.Context):
+    """
+    多Agent股票顾问系统 - 基于LangGraph的智能股票分析
+    """
+    if ctx.invoked_subcommand is None:
+        console.print(Panel.fit(
+            "[bold blue]多Agent股票顾问系统[/bold blue]\n"
+            "[dim]Powered by LangGraph & OpenAI[/dim]",
+            border_style="blue"
+        ))
+        console.print("\n[bold cyan]使用示例:[/bold cyan]\n")
+        console.print("  [green]# 分析单只股票[/green]")
+        console.print("  python main.py analyze \"分析贵州茅台的投资价值\"\n")
+        console.print("  [green]# 带选项[/green]")
+        console.print("  python main.py analyze \"五粮液怎么样\" -o report.md -v\n")
+        console.print("  [green]# 交互模式[/green]")
+        console.print("  python main.py interactive\n")
+        console.print("  [green]# 查看帮助[/green]")
+        console.print("  python main.py --help")
+        console.print("  python main.py analyze --help\n")
 
 
 def save_report(report: str, company_name: str, stock_code: str) -> Path:

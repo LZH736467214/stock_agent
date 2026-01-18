@@ -40,10 +40,7 @@ class ValuationAgent(BaseAgent):
         stock_code = state.get('stock_code', '')
         
         if not stock_code:
-            return {
-                **state,
-                'valuation_analysis': '无法进行估值分析：缺少股票代码'
-            }
+            return {'valuation_analysis': '无法进行估值分析：缺少股票代码'}
         
         # 构建输入消息
         prompt = VALUATION_PROMPT.format(
@@ -60,12 +57,6 @@ class ValuationAgent(BaseAgent):
             ai_message = result['messages'][-1]
             analysis = ai_message.content if hasattr(ai_message, 'content') else str(ai_message)
             
-            return {
-                **state,
-                'valuation_analysis': analysis
-            }
+            return {'valuation_analysis': analysis}
         except Exception as e:
-            return {
-                **state,
-                'valuation_analysis': f'估值分析失败: {str(e)}'
-            }
+            return {'valuation_analysis': f'估值分析失败: {str(e)}'}

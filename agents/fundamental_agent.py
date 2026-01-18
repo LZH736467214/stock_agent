@@ -46,10 +46,7 @@ class FundamentalAgent(BaseAgent):
         stock_code = state.get('stock_code', '')
         
         if not stock_code:
-            return {
-                **state,
-                'fundamental_analysis': '无法进行基本面分析：缺少股票代码'
-            }
+            return {'fundamental_analysis': '无法进行基本面分析：缺少股票代码'}
         
         # 构建输入消息
         prompt = FUNDAMENTAL_PROMPT.format(
@@ -66,12 +63,6 @@ class FundamentalAgent(BaseAgent):
             ai_message = result['messages'][-1]
             analysis = ai_message.content if hasattr(ai_message, 'content') else str(ai_message)
             
-            return {
-                **state,
-                'fundamental_analysis': analysis
-            }
+            return {'fundamental_analysis': analysis}
         except Exception as e:
-            return {
-                **state,
-                'fundamental_analysis': f'基本面分析失败: {str(e)}'
-            }
+            return {'fundamental_analysis': f'基本面分析失败: {str(e)}'}
