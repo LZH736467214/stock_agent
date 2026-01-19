@@ -17,7 +17,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.markdown import Markdown
 
 from config import config
-from graph.workflow import create_stock_analysis_graph_v2
+from graph.workflow import create_multi_branch_graph
 
 # 创建CLI应用
 app = typer.Typer(
@@ -108,7 +108,7 @@ def analyze(
     console.print(f"\n[cyan]分析查询:[/cyan] {query}\n")
     
     # 创建工作流
-    graph = create_stock_analysis_graph_v2()
+    graph = create_multi_branch_graph()
     
     # 初始状态
     initial_state = {
@@ -205,7 +205,7 @@ def interactive():
         raise typer.Exit(1)
     
     # 创建工作流
-    graph = create_stock_analysis_graph_v2()
+    graph = create_multi_branch_graph()
     
     while True:
         try:

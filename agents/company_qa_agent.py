@@ -48,17 +48,26 @@ class CompanyQAAgent(BaseAgent):
         
         # 检索相关知识
         print(f"    [CompanyQA] 检索公司知识库...")
+        
+        # 自动索引：如果知识库为空，尝试索引目录
+        if self.retriever.count() == 0:
+            print(f"    [CompanyQA] 知识库为空，正在扫描 PDF 文件...")
+            count = self.retriever.index_knowledge_dir()
+            print(f"    [CompanyQA] 已建立索引，共 {count} 个文档块")
+            
         knowledge = self.retriever.search(user_query, k=3)
         
         if not knowledge:
             # 知识库为空
             answer = f"""## 公司知识查询
-
+            
 抱歉，公司知识库中暂无相关信息。
 
 **您的问题**: {user_query}
 
-请将相关文档（PDF格式）放入 `data/company_knowledge/` 目录，然后重新查询。
+当前知识库文档数: {self.retriever.count()}
+
+请将相关文档（PDF格式）放入 `data/company_knowledge/` 目录，下次查询时会自动加载。
 """
             return {
                 **state,

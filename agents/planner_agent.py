@@ -35,9 +35,46 @@ class PlannerAgent(BaseAgent):
             system_prompt=PLANNER_PROMPT
         )
     
+    def _classify_intent_with_llm(self, query: str) -> str:
+        """
+        使用 LLM 进行意图分类（语义理解）
+        
+        Args:
+            query: 用户查询
+        
+        Returns:
+            意图: "stock" | "company" | "general"
+        """
+        prompt = f"""请判断以下用户查询的意图类型，只返回一个单词。
+
+**意图类型定义**：
+- stock: 股票投资分析相关（如：分析某公司、查看股价、了解财报等）
+- company: 公司内部知识查询（如：请假流程、报销制度、员工手册等）
+- general: 通用问答（如：天气、常识、技术问题等）
+
+**用户查询**：{query}
+
+**意图类型**："""
+        
+        try:
+            print(f"    [Planner] 关键词未匹配，调用LLM进行语义理解...")
+            response = self.llm.invoke([HumanMessage(content=prompt)])
+            intent = response.content.strip().lower()
+            
+            # 验证返回值
+            if intent in ['stock', 'company', 'general']:
+                print(f"    [Planner] LLM分类结果: {intent}")
+                return intent
+            else:
+                print(f"    [Planner] LLM返回无效值: {intent}, 默认为general")
+                return 'general'
+        except Exception as e:
+            print(f"    [Planner] LLM分类失败: {e}, 默认为general")
+            return 'general'
+    
     def _classify_intent(self, query: str) -> str:
         """
-        识别用户意图
+        混合意图识别：优先关键词，回退 LLM
         
         Args:
             query: 用户查询
@@ -47,18 +84,21 @@ class PlannerAgent(BaseAgent):
         """
         query_lower = query.lower()
         
-        # 检查股票相关关键词
+        # 第1步：快速关键词匹配 - stock
         for keyword in self.INTENT_KEYWORDS["stock"]:
             if keyword.lower() in query_lower:
+                print(f"    [Planner] 关键词匹配 '{keyword}' -> stock")
                 return "stock"
         
-        # 检查公司内部知识关键词
+        # 第2步：快速关键词匹配 - company
         for keyword in self.INTENT_KEYWORDS["company"]:
             if keyword.lower() in query_lower:
+                print(f"    [Planner] 关键词匹配 '{keyword}' -> company")
                 return "company"
         
-        # 默认为通用问答
-        return "general"
+        # 第3步：关键词未匹配，调用 LLM 进行语义理解
+        print(f"    [Planner] 关键词匹配失败")
+        return self._classify_intent_with_llm(query)
     
     def run(self, state: dict) -> dict:
         """
@@ -137,6 +177,19 @@ class PlannerAgent(BaseAgent):
                 print(f"    [DEBUG] 从文本提取股票代码: {stock_code}")
         
         print(f"    [DEBUG] 解析结果: company={company_name}, code={stock_code}, market={market}")
+        
+        # 特殊处理：如果意图是 stock 但没找到股票代码
+        # 这通常意味着是通用问题（如"分析过哪些行业"）或历史查询
+        if intent == "stock" and not stock_code:
+            print(f"    [Planner] ⚠️  未识别到股票代码，降级为通用问答(general)")
+            return {
+                **state,
+                'intent': 'general',  # 修改意图
+                'company_name': '',
+                'stock_code': '',
+                'market': '',
+                'messages': []
+            }
         
         return {
             **state,
