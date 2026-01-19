@@ -27,7 +27,9 @@ class Config:
     COMPANY_KNOWLEDGE_DIR: Path = RAG_DIR / "knowledge" / "company"
     STOCK_DB_DIR: Path = RAG_DIR / "db" / "stock"
     COMPANY_DB_DIR: Path = RAG_DIR / "db" / "company"
-    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-zh-v1.5")
+    # Embedding 模型配置: 支持 HuggingFace 模型名称或本地路径
+    EMBEDDING_MODEL_DIR: Path = RAG_DIR / "models"  # 本地模型存放目录
+    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "Qwen/Qwen3-Embedding-0.6B")
     
     # 日志级别
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
