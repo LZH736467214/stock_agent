@@ -22,8 +22,11 @@ class Config:
     OUTPUT_DIR: Path = Path(os.getenv("OUTPUT_DIR", "./output"))
     
     # RAG 配置
-    STOCK_KNOWLEDGE_DIR: Path = PROJECT_ROOT / "data" / "stock_knowledge"
-    COMPANY_KNOWLEDGE_DIR: Path = PROJECT_ROOT / "data" / "company_knowledge"
+    RAG_DIR: Path = PROJECT_ROOT / "rag"
+    STOCK_KNOWLEDGE_DIR: Path = RAG_DIR / "knowledge" / "stock"
+    COMPANY_KNOWLEDGE_DIR: Path = RAG_DIR / "knowledge" / "company"
+    STOCK_DB_DIR: Path = RAG_DIR / "db" / "stock"
+    COMPANY_DB_DIR: Path = RAG_DIR / "db" / "company"
     EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-zh-v1.5")
     
     # 日志级别

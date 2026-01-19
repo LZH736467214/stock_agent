@@ -28,8 +28,7 @@ class StockRetriever:
         os.makedirs(self.knowledge_dir, exist_ok=True)
         
         # 向量库目录
-        db_dir = os.path.join(config.PROJECT_ROOT, "data", "stock_knowledge_db")
-        self.vectorstore = ChromaVectorStore("stock_knowledge", db_dir)
+        self.vectorstore = ChromaVectorStore("stock_knowledge", str(config.STOCK_DB_DIR))
         
         self.pdf_loader = PDFLoader(chunk_size=500, chunk_overlap=50)
     

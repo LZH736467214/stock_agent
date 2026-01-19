@@ -28,8 +28,7 @@ class CompanyRetriever:
         os.makedirs(self.knowledge_dir, exist_ok=True)
         
         # 向量库目录
-        db_dir = os.path.join(config.PROJECT_ROOT, "data", "company_knowledge_db")
-        self.vectorstore = ChromaVectorStore("company_knowledge", db_dir)
+        self.vectorstore = ChromaVectorStore("company_knowledge", str(config.COMPANY_DB_DIR))
         
         self.pdf_loader = PDFLoader(chunk_size=500, chunk_overlap=50)
     
