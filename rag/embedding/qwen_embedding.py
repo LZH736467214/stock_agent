@@ -5,6 +5,7 @@ Qwen Embedding 模型封装
 - Qwen3-Embedding-0.6B (默认)
 - 其他 sentence-transformers 兼容模型
 - 本地模型路径
+- GPU 加速
 """
 import os
 import sys
@@ -13,14 +14,15 @@ from typing import List
 # 添加项目根目录
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
+import torch
 from sentence_transformers import SentenceTransformer
 from config import config
 
 
 class QwenEmbedding:
-    """Qwen Embedding 模型"""
+    """Qwen Embedding 模型 - 支持 GPU"""
     
-    def __init__(self, model_path: str = None):
+    def __init__(self, model_path: str = None, device: str = None):
         """
         初始化 Embedding 模型
         
@@ -29,6 +31,7 @@ class QwenEmbedding:
                 - HuggingFace 模型名称 (如 "Qwen/Qwen3-Embedding-0.6B")
                 - 本地绝对路径 (如 "C:/models/Qwen3-Embedding-0.6B")
                 - None: 使用配置中的默认模型
+            device: 设备，"cuda" / "cpu" / None (自动选择)
         """
         if model_path is None:
             # 检查本地模型目录是否存在该模型
@@ -42,6 +45,14 @@ class QwenEmbedding:
         else:
             self.model_path = model_path
         
+        # 自动选择设备
+        if device is None:
+            self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        else:
+            self.device = device
+        
+        print(f"    [RAG] 使用设备: {self.device}")
+        
         self._model = None
     
     @property
@@ -49,8 +60,12 @@ class QwenEmbedding:
         """延迟加载模型"""
         if self._model is None:
             print(f"    [RAG] 加载 Embedding 模型: {self.model_path}...")
-            self._model = SentenceTransformer(self.model_path, trust_remote_code=True)
-            print(f"    [RAG] Embedding 模型加载完成")
+            self._model = SentenceTransformer(
+                self.model_path, 
+                trust_remote_code=True,
+                device=self.device
+            )
+            print(f"    [RAG] Embedding 模型加载完成 (设备: {self.device})")
         return self._model
     
     def embed_documents(self, texts: List[str]) -> List[List[float]]:

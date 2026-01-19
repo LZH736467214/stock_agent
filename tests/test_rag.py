@@ -103,8 +103,9 @@ def test_vectorstore():
         "公司2024年营业收入达到1500亿元"
     ]
     embeddings = embedding.embed_documents(texts)
+    metadatas = [{"source": "测试", "index": i} for i in range(len(texts))]
     
-    store.add_documents(texts, embeddings)
+    store.add_documents(texts, embeddings, metadatas)
     print(f"✅ 添加 {len(texts)} 条文档成功")
     print(f"当前文档数量: {store.count()}")
     

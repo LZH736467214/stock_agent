@@ -46,11 +46,23 @@ class PDFLoader:
         # 读取 PDF
         reader = PdfReader(file_path)
         file_name = os.path.basename(file_path)
+        total_pages = len(reader.pages)
+        
+        print(f"    [RAG] 开始加载 {file_name} ({total_pages} 页)...")
         
         documents = []
         
         for page_num, page in enumerate(reader.pages, 1):
-            text = page.extract_text()
+            # 显示进度
+            if page_num % 10 == 0 or page_num == total_pages:
+                print(f"    [RAG] 处理进度: {page_num}/{total_pages} 页")
+            
+            try:
+                text = page.extract_text()
+            except Exception as e:
+                print(f"    [RAG] 警告: 第 {page_num} 页解析失败: {e}")
+                continue
+                
             if not text or not text.strip():
                 continue
             
@@ -72,7 +84,7 @@ class PDFLoader:
                     )
                     documents.append(doc)
         
-        print(f"    [RAG] 加载 {file_name}: {len(reader.pages)} 页, {len(documents)} 个分块")
+        print(f"    [RAG] 加载完成: {len(documents)} 个分块")
         return documents
     
     def load_directory(self, dir_path: str) -> List[Document]:
@@ -116,16 +128,24 @@ class PDFLoader:
         
         chunks = []
         start = 0
+        text_len = len(text)
+        prev_start = -1
         
-        while start < len(text):
-            end = start + self.chunk_size
+        while start < text_len:
+            # 防止无限循环
+            if start == prev_start:
+                break
+            prev_start = start
             
-            # 尝试在句子边界处分割
-            if end < len(text):
+            # 计算结束位置
+            end = min(start + self.chunk_size, text_len)
+            
+            # 如果不是最后一块，尝试在句子边界处分割
+            if end < text_len:
                 # 查找最近的句子结束符
                 for sep in ['。', '！', '？', '\n', '.', '!', '?']:
                     last_sep = text.rfind(sep, start, end)
-                    if last_sep > start:
+                    if last_sep > start + 100:  # 确保块不会太小
                         end = last_sep + 1
                         break
             
@@ -134,6 +154,8 @@ class PDFLoader:
                 chunks.append(chunk)
             
             # 下一块的起始位置（考虑重叠）
-            start = end - self.chunk_overlap if end < len(text) else len(text)
+            if end >= text_len:
+                break
+            start = max(end - self.chunk_overlap, start + 1)
         
         return chunks
