@@ -61,6 +61,9 @@ rag/models/
 # RAG - Database (向量库太大，不上传)
 rag/db/
 
+# RAG - Knowledge (PDF 文档太大，不上传)
+rag/knowledge/**/*.pdf
+
 # OS
 .DS_Store
 Thumbs.db
