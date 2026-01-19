@@ -26,44 +26,8 @@
 
 系统采用 **LangGraph** 构建有向无环图 (DAG)，通过扇出（Fan-out）实现分析任务的并行执行，再通过扇入（Fan-in）进行汇总。
 
-```mermaid
-graph TD
-    Start([👤 用户输入]) --> Planner[🧠 任务规划 Agent<br/>(混合意图识别)]
-    
-    Planner -->|意图: stock| Check{🔍 有股票代码?}
-    Planner -->|意图: company| CompanyQA[🏢 公司知识 Agent<br/>(RAG 检索)]
-    Planner -->|意图: general| GeneralQA[🤖 通用问答 Agent]
-    
-    %% 股票分析分支
-    Check -->|是| ParallelStart((⚡ 并行开始))
-    Check -->|否| GeneralQA
-    
-    subgraph StockAnalysis [📈 股票分析流水线]
-        ParallelStart --> Fund[💰 基本面 Agent<br/>(财务/运营)]
-        ParallelStart --> Tech[📉 技术面 Agent<br/>(K线/均线)]
-        ParallelStart --> Val[💹 估值 Agent<br/>(PE/PB/分红)]
-        ParallelStart --> News[📰 新闻 Agent<br/>(舆情/风险)]
-        
-        Fund --> Summarizer
-        Tech --> Summarizer
-        Val --> Summarizer
-        News --> Summarizer
-        
-        RAG[(📚 股票知识库<br/>年报/研报 PDF)] -.->|提取关键词检索| Summarizer[📝 总结 Agent<br/>(生成最终报告)]
-    end
-    
-    %% 公司知识分支
-    subgraph CompanyKnowledge [🏢 公司知识库]
-        Docs[(📄 内部文档 PDF)] -.->|向量化| VectorDB[(🗄️ ChromaDB)]
-        VectorDB -.->|语义检索| CompanyQA
-    end
-    
-    Summarizer --> End1([📄 投资分析报告])
-    CompanyQA --> End2([💡 知识库回答])
-    GeneralQA --> End3([💬 智能回复])
-```
+![Uploading b91fd0499ec8ca2842316bc379e80e3f.png…]()
 
----
 
 ## 🧩 Agent 矩阵
 
