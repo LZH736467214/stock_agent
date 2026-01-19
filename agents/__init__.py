@@ -7,6 +7,7 @@ from .technical_agent import TechnicalAgent
 from .valuation_agent import ValuationAgent
 from .news_agent import NewsAgent
 from .summarizer_agent import SummarizerAgent
+from .company_qa_agent import CompanyQAAgent
 
 __all__ = [
     'PlannerAgent',
@@ -15,4 +16,5 @@ __all__ = [
     'ValuationAgent',
     'NewsAgent',
     'SummarizerAgent',
+    'CompanyQAAgent',
 ]

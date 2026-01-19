@@ -1,6 +1,7 @@
 """
 任务规划Agent
-负责解析用户查询，提取公司名称，查询股票代码
+负责解析用户查询，识别意图，提取公司名称，查询股票代码
+支持三分支路由：股票分析 / 公司内部知识 / 通用问答
 """
 import json
 import re
@@ -12,7 +13,20 @@ from tools.stock_search import query_stock_info
 
 
 class PlannerAgent(BaseAgent):
-    """任务规划Agent"""
+    """任务规划Agent - 支持意图路由"""
+    
+    # 意图关键词
+    INTENT_KEYWORDS = {
+        "stock": [
+            "分析", "股票", "投资", "估值", "行情", "K线", "基本面", "技术面",
+            "市盈率", "PE", "PB", "ROE", "财报", "年报", "研报", "股价",
+            "买入", "卖出", "持有", "涨", "跌", "茅台", "五粮液"
+        ],
+        "company": [
+            "例会", "手册", "规章", "请假", "公司介绍", "流程", "制度",
+            "员工", "部门", "考勤", "报销", "审批", "OA", "内部"
+        ],
+    }
     
     def __init__(self):
         super().__init__(
@@ -20,6 +34,31 @@ class PlannerAgent(BaseAgent):
             tools=[query_stock_info],
             system_prompt=PLANNER_PROMPT
         )
+    
+    def _classify_intent(self, query: str) -> str:
+        """
+        识别用户意图
+        
+        Args:
+            query: 用户查询
+        
+        Returns:
+            意图: "stock" | "company" | "general"
+        """
+        query_lower = query.lower()
+        
+        # 检查股票相关关键词
+        for keyword in self.INTENT_KEYWORDS["stock"]:
+            if keyword.lower() in query_lower:
+                return "stock"
+        
+        # 检查公司内部知识关键词
+        for keyword in self.INTENT_KEYWORDS["company"]:
+            if keyword.lower() in query_lower:
+                return "company"
+        
+        # 默认为通用问答
+        return "general"
     
     def run(self, state: dict) -> dict:
         """
@@ -29,11 +68,26 @@ class PlannerAgent(BaseAgent):
             state: 包含user_query的状态
         
         Returns:
-            更新后的状态，包含company_name, stock_code, market
+            更新后的状态，包含intent, company_name, stock_code, market
         """
         user_query = state.get('user_query', '')
         
-        # 构建输入消息
+        # 1. 意图识别
+        intent = self._classify_intent(user_query)
+        print(f"    [Planner] 意图识别: {intent}")
+        
+        # 2. 非股票分析直接返回
+        if intent != "stock":
+            return {
+                **state,
+                'intent': intent,
+                'company_name': '',
+                'stock_code': '',
+                'market': '',
+                'messages': []
+            }
+        
+        # 3. 股票分析：提取公司和代码
         prompt = PLANNER_PROMPT.format(user_query=user_query)
         messages = [HumanMessage(content=prompt)]
         
@@ -86,6 +140,7 @@ class PlannerAgent(BaseAgent):
         
         return {
             **state,
+            'intent': intent,
             'company_name': company_name,
             'stock_code': stock_code,
             'market': market,

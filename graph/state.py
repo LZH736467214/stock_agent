@@ -11,6 +11,9 @@ class StockAnalysisState(TypedDict):
     # 用户输入
     user_query: str
     
+    # 意图识别结果
+    intent: str  # "stock" | "company" | "general"
+    
     # 任务规划结果
     company_name: str
     stock_code: str

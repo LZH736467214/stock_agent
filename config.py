@@ -21,6 +21,11 @@ class Config:
     PROJECT_ROOT: Path = Path(__file__).parent
     OUTPUT_DIR: Path = Path(os.getenv("OUTPUT_DIR", "./output"))
     
+    # RAG 配置
+    STOCK_KNOWLEDGE_DIR: Path = PROJECT_ROOT / "data" / "stock_knowledge"
+    COMPANY_KNOWLEDGE_DIR: Path = PROJECT_ROOT / "data" / "company_knowledge"
+    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-zh-v1.5")
+    
     # 日志级别
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     
@@ -40,6 +45,12 @@ class Config:
         """确保输出目录存在"""
         cls.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         return cls.OUTPUT_DIR
+    
+    @classmethod
+    def ensure_knowledge_dirs(cls) -> None:
+        """确保知识库目录存在"""
+        cls.STOCK_KNOWLEDGE_DIR.mkdir(parents=True, exist_ok=True)
+        cls.COMPANY_KNOWLEDGE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 config = Config()

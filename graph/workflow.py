@@ -1,6 +1,6 @@
 """
 LangGraph工作流定义
-实现"总-分-总"架构的股票分析流程
+实现三分支架构：股票分析 / 公司知识 / 通用问答
 """
 from typing import Dict, Any, List
 from langgraph.graph import StateGraph, END, START
@@ -13,6 +13,7 @@ from agents import (
     NewsAgent,
     SummarizerAgent,
 )
+from agents.company_qa_agent import CompanyQAAgent
 
 
 def create_planner_node():
@@ -93,13 +94,71 @@ def create_summarizer_node():
     return summarizer_node
 
 
-def should_continue(state: StockAnalysisState) -> str:
-    """
-    路由函数：判断是否继续执行分析
+def create_company_qa_node():
+    """创建公司知识问答节点"""
+    _agent = None
     
-    如果任务规划成功（有股票代码），则继续执行分析
-    否则直接结束
+    def company_qa_node(state: StockAnalysisState) -> Dict[str, Any]:
+        nonlocal _agent
+        if _agent is None:
+            _agent = CompanyQAAgent()
+        return _agent.run(state)
+    
+    return company_qa_node
+
+
+def create_general_qa_node():
+    """创建通用问答节点"""
+    from langchain_openai import ChatOpenAI
+    from langchain_core.messages import HumanMessage
+    import sys
+    import os
+    sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+    from config import config
+    
+    _llm = None
+    
+    def general_qa_node(state: StockAnalysisState) -> Dict[str, Any]:
+        nonlocal _llm
+        if _llm is None:
+            _llm = ChatOpenAI(
+                api_key=config.OPENAI_API_KEY,
+                base_url=config.OPENAI_BASE_URL,
+                model=config.OPENAI_MODEL,
+                temperature=0
+            )
+        
+        query = state.get('user_query', '')
+        print(f"    [GeneralQA] 直接 LLM 回答: {query}")
+        
+        messages = [HumanMessage(content=query)]
+        response = _llm.invoke(messages)
+        answer = response.content if hasattr(response, 'content') else str(response)
+        
+        return {
+            **state,
+            'final_report': f"## 问答\n\n**问题**: {query}\n\n**回答**: {answer}"
+        }
+    
+    return general_qa_node
+
+
+def route_by_intent(state: StockAnalysisState) -> str:
     """
+    根据意图路由到对应分支
+    
+    Returns:
+        'stock': 股票分析分支
+        'company': 公司知识分支
+        'general': 通用问答分支
+    """
+    intent = state.get('intent', 'stock')
+    print(f"    [Router] 路由到: {intent}")
+    return intent
+
+
+def should_continue_stock(state: StockAnalysisState) -> str:
+    """判断股票分析是否继续"""
     if state.get('stock_code'):
         return "continue"
     return "end"
@@ -107,15 +166,7 @@ def should_continue(state: StockAnalysisState) -> str:
 
 def create_stock_analysis_graph():
     """
-    创建股票分析工作流图
-    
-    架构：总-分-总
-    1. 任务规划 (总)
-    2. 四个并行分析 (分): 基本面、技术面、估值、新闻
-    3. 总结报告 (总)
-    
-    Returns:
-        编译后的工作流图
+    创建股票分析工作流图 (旧版本，仅支持股票分析)
     """
     # 创建状态图
     workflow = StateGraph(StockAnalysisState)
@@ -134,31 +185,19 @@ def create_stock_analysis_graph():
     # 添加条件边：任务规划后判断是否继续
     workflow.add_conditional_edges(
         "planner",
-        should_continue,
+        should_continue_stock,
         {
-            "continue": "fundamental",  # 继续执行分析
-            "end": END  # 结束
+            "continue": "fundamental",
+            "end": END
         }
     )
     
-    # 添加并行执行的边
-    # 注意：LangGraph默认是顺序执行，这里我们通过添加多个边来表示依赖关系
-    # 四个分析节点都依赖planner，但互不依赖，可以并行
     workflow.add_edge("fundamental", "summarizer")
     workflow.add_edge("technical", "summarizer") 
     workflow.add_edge("valuation", "summarizer")
     workflow.add_edge("news", "summarizer")
-    
-    # 由于上面的设置会导致summarizer被调用4次，我们需要修改架构
-    # 使用扇出-扇入模式
-    
-    # 重新设计：使用并行分支
-    # planner -> [fundamental, technical, valuation, news] -> summarizer
-    
-    # 总结节点到结束
     workflow.add_edge("summarizer", END)
     
-    # 编译图
     return workflow.compile()
 
 
@@ -167,13 +206,9 @@ def create_stock_analysis_graph_v2():
     创建股票分析工作流图 (并行版本)
     
     使用扇出-扇入模式实现四个分析节点并行执行
-    
-    架构：
-    planner -> [fundamental, technical, valuation, news] (并行) -> summarizer
     """
     from langgraph.constants import Send
     
-    # 创建状态图
     workflow = StateGraph(StockAnalysisState)
     
     # 添加节点
@@ -184,12 +219,9 @@ def create_stock_analysis_graph_v2():
     workflow.add_node("news", create_news_node())
     workflow.add_node("summarizer", create_summarizer_node())
     
-    # 设置入口节点
     workflow.set_entry_point("planner")
     
-    # 定义扇出函数：从planner分发到四个并行节点
     def fan_out_to_analyzers(state: StockAnalysisState) -> List[Send]:
-        """如果有股票代码，则同时发送到四个分析节点"""
         if state.get('stock_code'):
             return [
                 Send("fundamental", state),
@@ -197,23 +229,84 @@ def create_stock_analysis_graph_v2():
                 Send("valuation", state),
                 Send("news", state),
             ]
-        return []  # 没有股票代码则不执行分析
+        return []
     
-    # planner后使用条件边进行扇出
     workflow.add_conditional_edges(
         "planner",
         fan_out_to_analyzers,
         ["fundamental", "technical", "valuation", "news"]
     )
     
-    # 四个分析节点完成后都汇聚到summarizer (扇入)
     workflow.add_edge("fundamental", "summarizer")
     workflow.add_edge("technical", "summarizer")
     workflow.add_edge("valuation", "summarizer")
     workflow.add_edge("news", "summarizer")
-    
-    # summarizer完成后结束
     workflow.add_edge("summarizer", END)
     
-    # 编译图
+    return workflow.compile()
+
+
+def create_multi_branch_graph():
+    """
+    创建三分支工作流图 (RAG版本)
+    
+    架构：
+    planner（意图识别）
+        ├── stock: [fundamental, technical, valuation, news] -> summarizer
+        ├── company: company_qa
+        └── general: general_qa
+    """
+    from langgraph.constants import Send
+    
+    workflow = StateGraph(StockAnalysisState)
+    
+    # 添加所有节点
+    workflow.add_node("planner", create_planner_node())
+    workflow.add_node("fundamental", create_fundamental_node())
+    workflow.add_node("technical", create_technical_node())
+    workflow.add_node("valuation", create_valuation_node())
+    workflow.add_node("news", create_news_node())
+    workflow.add_node("summarizer", create_summarizer_node())
+    workflow.add_node("company_qa", create_company_qa_node())
+    workflow.add_node("general_qa", create_general_qa_node())
+    
+    workflow.set_entry_point("planner")
+    
+    # 三分支路由
+    def route_after_planner(state: StockAnalysisState):
+        intent = state.get('intent', 'stock')
+        
+        if intent == 'company':
+            return 'company'
+        elif intent == 'general':
+            return 'general'
+        else:
+            # 股票分析：检查是否有股票代码
+            if state.get('stock_code'):
+                return 'stock'
+            else:
+                return 'end'
+    
+    workflow.add_conditional_edges(
+        "planner",
+        route_after_planner,
+        {
+            "stock": "fundamental",
+            "company": "company_qa",
+            "general": "general_qa",
+            "end": END
+        }
+    )
+    
+    # 股票分析流程
+    workflow.add_edge("fundamental", "technical")
+    workflow.add_edge("technical", "valuation")
+    workflow.add_edge("valuation", "news")
+    workflow.add_edge("news", "summarizer")
+    workflow.add_edge("summarizer", END)
+    
+    # 公司知识和通用问答直接结束
+    workflow.add_edge("company_qa", END)
+    workflow.add_edge("general_qa", END)
+    
     return workflow.compile()
