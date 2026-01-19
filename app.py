@@ -1,12 +1,13 @@
 """
 多Agent股票顾问系统 - Web界面 (Streamlit)
-Apple Design Language风格
+Apple Design Language 风格 - 适配三分支路由 (Stock/Company/General)
 """
 import streamlit as st
 import asyncio
 import textwrap
+import json
 from datetime import datetime
-from graph.workflow import create_stock_analysis_graph_v2
+from graph.workflow import create_multi_branch_graph
 from config import config
 
 # 设置页面配置
@@ -66,6 +67,7 @@ st.markdown("""
         0 8px 32px rgba(0, 0, 0, 0.04),
         0 1px 3px rgba(0, 0, 0, 0.03);
     margin-bottom: 24px;
+    transition: transform 0.2s ease;
 }
 
 /* 输入框样式 */
@@ -81,10 +83,6 @@ st.markdown("""
 .stTextInput > div > div > input:focus {
     border-color: #007AFF !important;
     box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15) !important;
-}
-
-.stTextInput > div > div > input::placeholder {
-    color: #86868b !important;
 }
 
 /* 按钮样式 - Apple风格 */
@@ -106,10 +104,6 @@ st.markdown("""
     box-shadow: 0 6px 20px rgba(0, 122, 255, 0.45) !important;
 }
 
-.stButton > button:active {
-    transform: translateY(0) !important;
-}
-
 /* 进度条样式 */
 .stProgress > div > div > div > div {
     background: linear-gradient(90deg, #007AFF 0%, #5856D6 100%) !important;
@@ -127,11 +121,9 @@ st.markdown("""
     font-size: 15px;
     font-weight: 500;
     padding: 8px 0;
-}
-
-.status-icon {
-    display: inline-block;
-    margin-right: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 /* 工具调用日志样式 */
@@ -145,39 +137,37 @@ st.markdown("""
     max-height: 400px;
     overflow-y: auto;
     margin: 16px 0;
+    border: 1px solid rgba(255,255,255,0.1);
 }
 
 .tool-log-entry {
-    padding: 6px 0;
+    padding: 8px 0;
     border-bottom: 1px solid #333;
     display: flex;
     align-items: center;
 }
 
-.tool-log-entry:last-child {
-    border-bottom: none;
-}
+.tool-log-entry:last-child { border-bottom: none; }
 
 .log-time {
     color: #86868b;
     margin-right: 12px;
-    font-size: 12px;
+    font-size: 11px;
+    min-width: 50px;
 }
 
-.log-content {
-    flex-grow: 1;
-}
+.log-content { flex-grow: 1; margin-left: 8px; }
 
 /* Agent标签样式 */
 .agent-badge {
     display: inline-block;
     padding: 4px 10px;
     border-radius: 6px;
-    font-size: 12px;
-    font-weight: 600;
-    margin-right: 8px;
+    font-size: 11px;
+    font-weight: 700;
     min-width: 90px;
     text-align: center;
+    text-transform: uppercase;
 }
 
 .agent-planner { background: #007AFF20; color: #007AFF; }
@@ -187,55 +177,48 @@ st.markdown("""
 .agent-news { background: #FF2D5520; color: #FF2D55; }
 .agent-summarizer { background: #5856D620; color: #5856D6; }
 .agent-system { background: #8E8E9320; color: #8E8E93; }
+.agent-company_qa { background: #FF9F0A20; color: #FF9F0A; } /* Orange */
+.agent-general_qa { background: #30B0C720; color: #30B0C7; } /* Teal */
 
 /* 状态标记 */
 .status-tag {
-    font-size: 11px;
+    font-size: 10px;
     padding: 2px 6px;
     border-radius: 4px;
     margin-left: 8px;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
+    font-weight: 700;
 }
 
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-}
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-@keyframes pulse {
-    0% { opacity: 0.6; }
-    50% { opacity: 1; }
-    100% { opacity: 0.6; }
-}
-
-.status-running { 
-    background: #FFD60A20; 
-    color: #FFD60A; 
-}
-
+.status-running { background: #FFD60A20; color: #FFD60A; }
 .status-running::before {
     content: "⟳";
-    font-weight: bold;
     display: inline-block;
     animation: spin 1s linear infinite;
+    margin-right: 4px;
 }
-
 .status-done { background: #34C75920; color: #34C759; }
 
-/* 下载按钮 */
-.stDownloadButton > button {
-    background: #1d1d1f !important;
-    color: white !important;
-    border-radius: 12px !important;
-    padding: 12px 24px !important;
-    font-weight: 600 !important;
-    transition: all 0.2s ease !important;
+/* 报告结果样式 */
+.report-container {
+    padding: 20px;
 }
 
-.stDownloadButton > button:hover {
-    background: #333 !important;
+.report-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.report-icon {
+    font-size: 2rem;
+    margin-right: 12px;
+}
+
+.report-title {
+    font-size: 1.5rem;
+    font-weight: 700;
 }
 
 /* 分隔线 */
@@ -244,48 +227,49 @@ st.markdown("""
     background: linear-gradient(90deg, transparent, #d2d2d7, transparent);
     margin: 32px 0;
 }
-
-/* Expander样式 */
-.streamlit-expanderHeader {
-    background: rgba(255, 255, 255, 0.5) !important;
-    border-radius: 12px !important;
-    font-weight: 500 !important;
-}
 </style>
 """, unsafe_allow_html=True)
 
 
-# 节点进度映射
-# Start: 节点开始时的基础进度
-# End: 节点完成时的进度
-NODE_PROGRESS = {
-    'planner': {'start': 0, 'end': 10, 'label': '🎯 任务规划', 'desc': '分析用户意图...'},
-    'fundamental': {'start': 10, 'end': 30, 'label': '💰 基本面分析', 'desc': '分析财报数据...'},
-    'technical': {'start': 30, 'end': 50, 'label': '📉 技术面分析', 'desc': '分析K线走势...'},
-    'valuation': {'start': 50, 'end': 70, 'label': '💹 估值分析', 'desc': '计算合理估值...'},
-    'news': {'start': 70, 'end': 90, 'label': '📰 新闻分析', 'desc': '评估市场情绪...'},
-    'summarizer': {'start': 90, 'end': 100, 'label': '📝 生成报告', 'desc': '撰写最终报告...'},
+# 节点进度与元数据映射
+NODE_METADATA = {
+    'planner': {'start': 0, 'end': 10, 'label': '🎯 意图识别', 'desc': '分析用户查询意图...'},
+    
+    # 股票分支
+    'fundamental': {'start': 10, 'end': 30, 'label': '💰 基本面分析', 'desc': '分析财报与运营数据...'},
+    'technical': {'start': 30, 'end': 50, 'label': '📉 技术面分析', 'desc': '计算技术指标与趋势...'},
+    'valuation': {'start': 50, 'end': 70, 'label': '💹 估值分析', 'desc': '进行相对与绝对估值...'},
+    'news': {'start': 70, 'end': 90, 'label': '📰 新闻分析', 'desc': '抓取并分析市场舆情...'},
+    'summarizer': {'start': 90, 'end': 100, 'label': '📝 生成报告', 'desc': 'RAG 检索与报告生成...'},
+    
+    # 公司知识分支
+    'company_qa': {'start': 50, 'end': 90, 'label': '🏢 知识检索', 'desc': '查询公司内部知识库...'},
+    
+    # 通用分支
+    'general_qa': {'start': 50, 'end': 90, 'label': '🤖 智能问答', 'desc': '思考并生成回答...'},
 }
 
 async def run_analysis_async(query, status_container, progress_bar, log_container):
-    """异步运行分析工作流，实时捕获事件"""
+    """异步运行分析工作流"""
     try:
-        graph = create_stock_analysis_graph_v2()
+        # 使用三分支工作流
+        graph = create_multi_branch_graph()
         
         initial_state = {
             'user_query': query,
             'messages': []
         }
         
-        # logs 存储结构化数据: {'node': str, 'status': str, 'html': str}
+        # 日志数据存储
         logs_data = []
         final_state = {}
         
         current_node = None
         current_progress = 0
+        detected_intent = None
         
         def render_logs():
-            """渲染所有日志"""
+            """渲染日志HTML"""
             full_html = "".join([item['html'] for item in logs_data])
             log_container.markdown(
                 f'<div class="tool-log">{full_html}</div>',
@@ -294,7 +278,7 @@ async def run_analysis_async(query, status_container, progress_bar, log_containe
 
         def update_log(node, message, status="info"):
             timestamp = datetime.now().strftime("%H:%M:%S")
-            badge_class = f"agent-{node}" if node in NODE_PROGRESS else "agent-system"
+            badge_class = f"agent-{node}" if node in NODE_METADATA else "agent-system"
             
             status_html = ""
             if status == "running":
@@ -311,23 +295,15 @@ async def run_analysis_async(query, status_container, progress_bar, log_containe
             </div>
             ''')
             
-            # 如果是Done状态，查找上一个该节点的Running状态并替换
+            # 更新已存在的Running状态为Done
             if status == "done":
-                found = False
                 for i in range(len(logs_data) - 1, -1, -1):
                     if logs_data[i]['node'] == node and logs_data[i]['status'] == 'running':
-                        logs_data[i] = {
-                            'node': node,
-                            'status': 'done',
-                            'html': log_html
-                        }
-                        found = True
-                        break
-                if not found:
-                    logs_data.append({'node': node, 'status': status, 'html': log_html})
-            else:
-                logs_data.append({'node': node, 'status': status, 'html': log_html})
-            
+                        logs_data[i] = {'node': node, 'status': 'done', 'html': log_html}
+                        render_logs()
+                        return
+
+            logs_data.append({'node': node, 'status': status, 'html': log_html})
             render_logs()
 
         # 订阅事件流
@@ -336,110 +312,128 @@ async def run_analysis_async(query, status_container, progress_bar, log_containe
             name = event["name"]
             data = event["data"]
             
-            # 1. 节点开始 (on_chain_start)
-            if kind == "on_chain_start" and name in NODE_PROGRESS:
+            # 1. 节点开始
+            if kind == "on_chain_start" and name in NODE_METADATA:
                 current_node = name
-                node_info = NODE_PROGRESS[name]
+                node_info = NODE_METADATA[name]
                 
-                # 更新进度条
-                current_progress = node_info['start']
+                # 智能跳转进度：如果刚识别完意图，根据 intent 跳转
+                if name == 'planner':
+                    current_progress = 5
+                else:
+                    current_progress = node_info['start']
+                
                 progress_bar.progress(current_progress)
                 
-                # 更新状态文本
+                # 更新状态卡片
                 status_container.markdown(textwrap.dedent(f"""
                 <div class="status-text">
                     <span class="status-icon">🚀</span>
-                    <strong>{node_info['label']}</strong> - {node_info['desc']}
+                    <div>
+                        <strong>{node_info['label']}</strong><br>
+                        <span style="font-size: 13px; color: #86868b;">{node_info['desc']}</span>
+                    </div>
                 </div>
                 """), unsafe_allow_html=True)
                 
-                update_log(name, "开始执行...", "running")
+                update_log(name, "开始执行工作...", "running")
             
-            # 2. 节点完成 (on_chain_end)
+            # 2. 节点结束
             elif kind == "on_chain_end":
-                if name in NODE_PROGRESS:
-                    node_info = NODE_PROGRESS[name]
+                if name in NODE_METADATA:
+                    node_info = NODE_METADATA[name]
                     current_progress = node_info['end']
                     progress_bar.progress(current_progress)
                     update_log(name, "执行完成", "done")
                 
-                # 捕获状态更新
+                # 捕获状态输出
                 if "output" in data and isinstance(data["output"], dict):
-                    final_state.update(data["output"])
+                    output = data["output"]
+                    final_state.update(output)
+                    
+                    # 捕获意图识别结果
+                    if name == "planner" and "intent" in output:
+                        detected_intent = output["intent"]
+                        intent_label = {
+                            "stock": "📈 股票分析",
+                            "company": "🏢 公司知识查询",
+                            "general": "🤖 通用问答"
+                        }.get(detected_intent, detected_intent)
+                        
+                        update_log("system", f"意图识别为: {intent_label}", "info")
 
-            # 3. 工具调用开始 (on_tool_start)
+            # 3. 工具调用
             elif kind == "on_tool_start":
-                if current_progress < 95:
-                    progress_bar.progress(current_progress + 2)
-                
                 update_log(current_node or "system", f"调用工具: {name}", "running")
                 
-            # 4. 工具调用结束 (on_tool_end)
             elif kind == "on_tool_end":
-                update_log(current_node or "system", f"工具 {name} 返回结果", "done")
+                update_log(current_node or "system", f"工具返回结果", "done")
 
         # 完成
         progress_bar.progress(100)
         status_container.markdown(textwrap.dedent("""
         <div class="status-text">
             <span class="status-icon">✅</span>
-            <strong>分析完成</strong> - 报告已生成
+            <strong>处理完成</strong>
         </div>
         """), unsafe_allow_html=True)
         
+        # 补充结果状态
+        final_state['detected_intent'] = detected_intent
         return final_state
         
     except Exception as e:
-        status_container.error(f"分析出错: {str(e)}")
-        import traceback
-        st.error(traceback.format_exc())
+        status_container.error(f"处理出错: {str(e)}")
+        # import traceback
+        # st.error(traceback.format_exc())
         return None
 
 
 def main():
     # 标题区
     st.markdown('<div class="apple-title">📈 Agentic Stock Advisor</div>', unsafe_allow_html=True)
-    st.markdown('<div class="apple-subtitle">基于多Agent协作的智能股票分析系统</div>', unsafe_allow_html=True)
+    st.markdown('<div class="apple-subtitle">智能多意图股票助手 • 股票分析 | 公司知识 | 通用问答</div>', unsafe_allow_html=True)
 
     # 状态检查
     if not config.OPENAI_API_KEY:
         st.warning("⚠️ 未检测到 OPENAI_API_KEY，请检查 .env 配置")
     
-    # 输入区 - 使用form支持回车提交
+    # 输入区
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     
     with st.form(key="analysis_form", clear_on_submit=False):
-        col1, col2 = st.columns([4, 1])
+        col1, col2 = st.columns([5, 1])
         with col1:
             query = st.text_input(
-                "请输入您想分析的股票或问题",
-                placeholder="例如：分析贵州茅台的投资价值",
+                "输入",
+                placeholder="例如：'分析茅台' 或 '公司请假流程' 或 '什么是人工智能'",
                 label_visibility="collapsed",
                 key="stock_query"
             )
         with col2:
-            submit_btn = st.form_submit_button("🚀 开始分析", use_container_width=True)
+            submit_btn = st.form_submit_button("🚀 发送", use_container_width=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # 分析逻辑
+    # 处逻辑
     if submit_btn and query:
         st.markdown('<div class="apple-divider"></div>', unsafe_allow_html=True)
         
-        # 创建进度显示区域
-        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        st.markdown("### 🔄 分析进度")
+        # 进度与日志区
+        col_progress, col_log = st.columns([1, 1])
         
-        progress_bar = st.progress(0)
-        status_container = st.empty()
-        
-        # 日志显示区域 (默认展开)
-        with st.expander("📋 实时分析日志", expanded=True):
-            log_container = st.empty()
-            log_container.markdown('<div class="tool-log">等待分析任务启动...</div>', unsafe_allow_html=True)
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-        
+        with col_progress:
+            st.markdown('<div class="glass-card" style="height: 100%;">', unsafe_allow_html=True)
+            st.markdown("### 🔄 处理进度")
+            progress_bar = st.progress(0)
+            status_container = st.empty()
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+        with col_log:
+            with st.expander("📋 实时思考日志", expanded=True):
+                log_container = st.empty()
+                log_container.markdown('<div class="tool-log">等待任务启动...</div>', unsafe_allow_html=True)
+
         # 运行异步分析
         result = asyncio.run(run_analysis_async(query, status_container, progress_bar, log_container))
         
@@ -447,30 +441,51 @@ def main():
             st.markdown('<div class="apple-divider"></div>', unsafe_allow_html=True)
             
             # 结果展示区
+            intent = result.get('detected_intent', 'general')
+            
+            # 根据意图展示不同风格的头部
+            if intent == 'stock':
+                header_icon = "📊"
+                header_title = f"{result.get('company_name', '股票')} 投资分析报告"
+            elif intent == 'company':
+                header_icon = "🏢"
+                header_title = "公司知识查询结果"
+            else:
+                header_icon = "🤖"
+                header_title = "智能问答结果"
+                
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
             
-            stock_info = f"{result.get('company_name', '未知')} ({result.get('stock_code', '未知')})"
-            st.markdown(f"### 📊 {stock_info} 分析报告")
+            # 头部
+            col_h1, col_h2 = st.columns([1, 15])
+            with col_h1:
+                st.markdown(f"<div class='report-icon'>{header_icon}</div>", unsafe_allow_html=True)
+            with col_h2:
+                st.markdown(f"<div class='report-title'>{header_title}</div>", unsafe_allow_html=True)
+                if intent == 'stock':
+                    st.caption(f"代码: {result.get('stock_code', '--')} | 市场: {result.get('market', '--')}")
             
-            # 报告下载
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # 报告内容
             if result.get('final_report'):
-                col1, col2, col3 = st.columns([1, 2, 1])
-                with col2:
-                    filename = f"Report_{result.get('company_name', 'stock')}_{datetime.now().strftime('%Y%m%d_%H%M')}.md"
+                # 如果是股票报告，提供下载
+                if intent == 'stock':
+                    report_content = result['final_report']
+                    timestamp = datetime.now().strftime('%Y%m%d_%H%M')
+                    filename = f"Report_{result.get('company_name', 'stock')}_{timestamp}.md"
+                    
                     st.download_button(
-                        label="📥 下载 Markdown 报告",
-                        data=result['final_report'],
+                        label="📥 下载完整报告 (Markdown)",
+                        data=report_content,
                         file_name=filename,
-                        mime="text/markdown",
-                        use_container_width=True
+                        mime="text/markdown"
                     )
+                    st.divider()
                 
-                st.markdown('<div class="apple-divider"></div>', unsafe_allow_html=True)
-                
-                # 报告展示
                 st.markdown(result['final_report'])
             else:
-                st.error("无法生成报告，请检查日志。")
+                st.error("未生成有效内容，请检查日志。")
             
             st.markdown('</div>', unsafe_allow_html=True)
 
