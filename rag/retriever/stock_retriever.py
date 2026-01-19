@@ -10,7 +10,7 @@ from typing import List, Optional
 # 添加项目根目录
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
-from rag.embedding.bge_embedding import BGEEmbedding
+from rag.embedding.qwen_embedding import QwenEmbedding
 from rag.vectorstore.chroma_store import ChromaVectorStore
 from rag.document_loader.pdf_loader import PDFLoader, Document
 from config import config
@@ -21,7 +21,7 @@ class StockRetriever:
     
     def __init__(self):
         """初始化检索器"""
-        self.embedding = BGEEmbedding()
+        self.embedding = QwenEmbedding()
         
         # 知识库目录
         self.knowledge_dir = config.STOCK_KNOWLEDGE_DIR

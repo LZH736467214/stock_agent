@@ -1,11 +1,10 @@
 """
-Embedding 模型封装
+Qwen Embedding 模型封装
 
-支持多种 Embedding 模型:
+支持:
 - Qwen3-Embedding-0.6B (默认)
 - 其他 sentence-transformers 兼容模型
-
-支持从本地路径加载模型
+- 本地模型路径
 """
 import os
 import sys
@@ -79,10 +78,5 @@ class QwenEmbedding:
         Returns:
             向量
         """
-        # Qwen3-Embedding 不需要特殊前缀
         embedding = self.model.encode(text, normalize_embeddings=True)
         return embedding.tolist()
-
-
-# 保持向后兼容
-BGEEmbedding = QwenEmbedding

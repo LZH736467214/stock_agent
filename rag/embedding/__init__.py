@@ -1,4 +1,4 @@
 """Embedding 模块"""
-from .bge_embedding import BGEEmbedding
+from .qwen_embedding import QwenEmbedding
 
-__all__ = ["BGEEmbedding"]
+__all__ = ["QwenEmbedding"]

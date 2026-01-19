@@ -61,9 +61,9 @@ def test_embedding():
     print("【测试2】Embedding 模型")
     print("="*50)
     
-    from rag.embedding.bge_embedding import BGEEmbedding
+    from rag.embedding.qwen_embedding import QwenEmbedding
     
-    embedding = BGEEmbedding()
+    embedding = QwenEmbedding()
     
     # 测试批量向量化
     texts = ["贵州茅台是中国白酒行业龙头企业", "公司主要从事白酒的生产和销售"]
@@ -87,14 +87,14 @@ def test_vectorstore():
     print("="*50)
     
     from rag.vectorstore.chroma_store import ChromaVectorStore
-    from rag.embedding.bge_embedding import BGEEmbedding
+    from rag.embedding.qwen_embedding import QwenEmbedding
     
     # 使用临时测试集合
     test_db_dir = os.path.join(config.RAG_DIR, "db", "test")
     os.makedirs(test_db_dir, exist_ok=True)
     
     store = ChromaVectorStore("test_collection", test_db_dir)
-    embedding = BGEEmbedding()
+    embedding = QwenEmbedding()
     
     # 添加测试文档
     texts = [

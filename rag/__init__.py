@@ -6,13 +6,13 @@ RAG (Retrieval-Augmented Generation) 模块
 - 公司内部知识检索（公司问答）
 """
 
-from .embedding.bge_embedding import BGEEmbedding
+from .embedding.qwen_embedding import QwenEmbedding
 from .vectorstore.chroma_store import ChromaVectorStore
 from .retriever.stock_retriever import StockRetriever
 from .retriever.company_retriever import CompanyRetriever
 
 __all__ = [
-    "BGEEmbedding",
+    "QwenEmbedding",
     "ChromaVectorStore", 
     "StockRetriever",
     "CompanyRetriever",
