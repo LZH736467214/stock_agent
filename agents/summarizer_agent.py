@@ -35,28 +35,90 @@ class SummarizerAgent(BaseAgent):
             self._retriever = StockRetriever()
         return self._retriever
     
-    def _get_knowledge_context(self, company_name: str) -> str:
+    def _extract_industry_from_text(self, text: str) -> str:
+        """
+        使用 LLM 从文本中提取行业信息
+        
+        Args:
+            text: 分析文本
+        
+        Returns:
+            行业名称
+        """
+        if not text or text == '暂无数据':
+            return ""
+        
+        prompt = f"""从以下分析文本中提取公司所属行业，只返回行业名称（如：白酒、新能源、医药、银行、房地产）。
+如果无法确定行业，返回空字符串。
+
+分析文本：
+{text[:800]}
+
+行业名称："""
+        
+        try:
+            response = self.llm.invoke([HumanMessage(content=prompt)])
+            industry = response.content.strip()[:20]  # 限制长度
+            # 清理可能的多余内容
+            industry = industry.split('\n')[0].strip()
+            return industry
+        except Exception as e:
+            print(f"    [Summarizer] 行业提取失败: {e}")
+            return ""
+    
+    def _extract_company_and_industry(self, state: dict) -> tuple:
+        """
+        从 state 和前序分析中提取公司名称和行业
+        
+        Args:
+            state: 工作流状态
+        
+        Returns:
+            (company_name, industry) 元组
+        """
+        # 1. 公司名称：优先从 state 获取
+        company_name = state.get('company_name', '')
+        
+        # 2. 行业：从基本面分析中提取
+        fundamental = state.get('fundamental_analysis', '')
+        industry = self._extract_industry_from_text(fundamental)
+        
+        # 如果基本面没有行业信息，尝试从估值分析提取
+        if not industry:
+            valuation = state.get('valuation_analysis', '')
+            industry = self._extract_industry_from_text(valuation)
+        
+        print(f"    [Summarizer] 提取结果 - 公司: {company_name}, 行业: {industry or '未知'}")
+        return company_name, industry
+    
+    def _get_knowledge_context(self, company_name: str, industry: str = "") -> str:
         """
         从知识库检索相关内容
         
         Args:
             company_name: 公司名称
+            industry: 所属行业
         
         Returns:
             知识库内容
         """
         if self.retriever.count() == 0:
+            print(f"    [Summarizer] 知识库为空，跳过RAG检索")
             return ""
         
-        # 构建查询
-        query = f"{company_name} 业务 财务 风险 发展"
-        print(f"    [Summarizer] 检索知识库: {query}")
+        # 仅使用公司名称和行业进行精准检索
+        query_parts = [company_name]
+        if industry:
+            query_parts.append(industry)
+        query = ' '.join(query_parts)
+        
+        print(f"    [Summarizer] RAG检索查询: {query}")
         
         knowledge = self.retriever.search(query, k=3)
         if knowledge:
-            print(f"    [Summarizer] 找到 {len(knowledge.split('---'))} 条相关知识")
+            print(f"    [Summarizer] ✅ 找到 {len(knowledge.split('---'))} 条相关知识")
         else:
-            print(f"    [Summarizer] 知识库无相关内容")
+            print(f"    [Summarizer] ⚠️  知识库无匹配内容")
         
         return knowledge
     
@@ -79,8 +141,12 @@ class SummarizerAgent(BaseAgent):
         valuation_analysis = state.get('valuation_analysis', '暂无数据')
         news_analysis = state.get('news_analysis', '暂无数据')
         
-        # RAG 增强：检索知识库
-        knowledge_context = self._get_knowledge_context(company_name)
+        # RAG 增强：智能提取公司和行业，精准检索
+        extracted_company, industry = self._extract_company_and_industry(state)
+        knowledge_context = self._get_knowledge_context(
+            extracted_company or company_name, 
+            industry
+        )
         
         # 构建输入消息
         prompt = SUMMARIZER_PROMPT.format(
